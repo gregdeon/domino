@@ -31,7 +31,7 @@ class SpotlightSlicer(Slicer):
         n_slices: int = 5,
         spotlight_size: int = 0.02,  # recommended from paper
         n_steps: int = 1000,
-        learning_rate: float = 1e-3,  # default from the implementation
+        learning_rate: float = 1e-2,  # default from the implementation
         device: torch.device = torch.device("cpu"),
     ):
         super().__init__(n_slices=n_slices)
@@ -118,13 +118,13 @@ class SpotlightSlicer(Slicer):
 
     def predict(
         self,
-        data: mk.DataPanel,
+        data: mk.DataPanel = None,
         embeddings: Union[str, np.ndarray] = "embedding",
         targets: Union[str, np.ndarray] = None,
         pred_probs: Union[str, np.ndarray] = None,
         losses: Union[str, np.ndarray] = None 
     ) -> np.ndarray:
-        probs = self.predict_proba(
+        weights = self.predict_proba(
             data=data,
             embeddings=embeddings,
             targets=targets,
@@ -132,9 +132,9 @@ class SpotlightSlicer(Slicer):
             losses=losses
         )
 
-        # TODO (Greg): check if this is the preferred way to get hard predictions from
-        # probabilities
-        return (probs > 0.5).astype(np.int32)
+        # Compute hard assignments by picking top weights for each cluster        
+        weight_thresholds = np.quantile(weights, 1-self.config.spotlight_size, axis=0)
+        return (weights > weight_thresholds).astype(np.int32)
     
     def _compute_losses(
         self, targets: np.ndarray, pred_probs: np.ndarray, losses: np.ndarray
